@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fruit Ninja AI - Web Version</title>
+    <title>Fruit Ninja AI - Falling From Top Version</title>
     <style>
         body {
             margin: 0;
             padding: 0;
             background-color: #1a1a1a;
             color: white;
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -19,8 +19,18 @@
             overflow: hidden;
         }
         h1 {
-            margin-bottom: 10px;
+            margin: 0 0 5px 0;
             color: #4CAF50;
+            font-size: 24px;
+        }
+        #score-board {
+            font-size: 22px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 5px 20px;
+            border-radius: 20px;
+            border: 1px solid #4CAF50;
         }
         .container {
             position: relative;
@@ -28,21 +38,25 @@
             height: 480px;
             border: 4px solid #4CAF50;
             border-radius: 10px;
-            box-shadow: 0 0 20px rgba(76, 175, 80, 0.5);
+            box-shadow: 0 0 20px rgba(76, 175, 80, 0.3);
+            transform: scaleX(-1); /* Mirror Effect */
         }
-        /* كيديرو الكاميرا ف الخلفية والـ Canvas فوق منها نيشان */
         #webcam, #output_canvas {
             position: absolute;
             top: 0;
             left: 0;
             width: 640px;
             height: 480px;
-            transform: rotateY(180deg); /* Mirror effect باش يتحرك بحال المراية */
         }
         #loading {
             position: absolute;
             font-size: 20px;
             color: #ffeb3b;
+            background: rgba(0,0,0,0.8);
+            padding: 10px 20px;
+            border-radius: 10px;
+            z-index: 10;
+            transform: scaleX(-1); 
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -50,11 +64,12 @@
 </head>
 <body>
 
-    <h1>Fruit Ninja AI - Hand Tracking 🕹️</h1>
-    <div id="loading">جاري تحميل موديل الذكاء الاصطناعي...</div>
-
+    <h1>Fruit Ninja AI 🕹️</h1>
+    <div id="score-board">Score: <span id="score">0</span></div>
+    
     <div class="container">
-        <video id="webcam" autoplay playsinline></video>
+        <div id="loading">جاري تحميل الذكاء الاصطناعي والكاميرا...</div>
+        <video id="webcam" autoplay playsinline style="display:none;"></video>
         <canvas id="output_canvas" width="640" height="480"></canvas>
     </div>
 
@@ -63,53 +78,120 @@
         const canvasElement = document.getElementById('output_canvas');
         const canvasCtx = canvasElement.getContext('2d');
         const loadingDiv = document.getElementById('loading');
+        const scoreSpan = document.getElementById('score');
 
-        // دالة كترسم النتائج فوق الكانفاس
+        let score = 0;
+        let gameObjects = [];
+
+        class GameObject {
+            constructor() {
+                this.radius = 25;
+                // تختار مكان عشوائي ف العرض (الـ x)
+                this.x = Math.random() * (canvasElement.width - 60) + 30;
+                // تبدأ من الفوق كاع (خارج الشاشة شوية ف الـ y)
+                this.y = -this.radius; 
+                // سرعة خفيفة ف الجناب باش ما ينزلوش نيشان
+                this.speedX = (Math.random() - 0.5) * 2;
+                // سرعة النزول للتحت (مابين 3 و 7 بيكسل ف الفريم)
+                this.speedY = Math.random() * 4 + 3; 
+                
+                this.type = Math.random() > 0.2 ? 'fruit' : 'bomb';
+                this.color = this.type === 'fruit' ? '#00FF00' : '#FF0000';
+                this.isSliced = false;
+            }
+
+            update() {
+                // الكرات كيهبطو دبا بلا جاذبية مفرطة باش ما يزربوش بزاف
+                this.x += this.speedX;
+                this.y += this.speedY;
+            }
+
+            draw() {
+                if (this.isSliced) return;
+                canvasCtx.beginPath();
+                canvasCtx.arc(this.x, this.y, this.radius, 0, 2 * Math.PI);
+                canvasCtx.fillStyle = this.color;
+                canvasCtx.shadowColor = this.color;
+                canvasCtx.shadowBlur = 10;
+                canvasCtx.fill();
+                canvasCtx.shadowBlur = 0;
+            }
+        }
+
+        function spawnObjects() {
+            // التحكم ف شحال من كورة كاطيح ف الدقة
+            if (Math.random() < 0.04 && gameObjects.length < 6) {
+                gameObjects.push(new GameObject());
+            }
+        }
+
         function onResults(results) {
-            // إخفاء رسالة التحميل فاش يبدأ الموديل يخدم
             loadingDiv.style.display = 'none';
-
-            // مسح الكانفاس ف كل فريم
+            
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            canvasCtx.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
 
-            // إيلا لقى اليد ف الكاميرا
-            if (results.multiHandLandmarks) {
-                for (const landmarks of results.multiHandLandmarks) {
-                    
-                    // نقطة رقم 8 هي راس صبع السبابة (Index Finger Tip)
-                    const indexFinger = landmarks[8];
-                    
-                    // تحويل الإحداثيات لنسب متطابقة مع حجم الكانفاس
-                    const x = indexFinger.x * canvasElement.width;
-                    const y = indexFinger.y * canvasElement.height;
+            let fingerX = null;
+            let fingerY = null;
 
-                    // رسم دائرة خضراء مضيئة ف راس الصبع (بحال الموس ديال اللعبة)
-                    canvasCtx.beginPath();
-                    canvasCtx.arc(x, y, 15, 0, 2 * Math.PI);
-                    canvasCtx.fillStyle = '#00FF00';
-                    canvasCtx.shadowColor = '#00FF00';
-                    canvasCtx.shadowBlur = 15;
-                    canvasCtx.fill();
-                    canvasCtx.shadowBlur = 0; // إعادة التعيين
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                const indexFinger = landmarks[8]; 
+                
+                fingerX = indexFinger.x * canvasElement.width;
+                fingerY = indexFinger.y * canvasElement.height;
+
+                canvasCtx.beginPath();
+                canvasCtx.arc(fingerX, fingerY, 12, 0, 2 * Math.PI);
+                canvasCtx.fillStyle = '#00E5FF';
+                canvasCtx.shadowColor = '#00E5FF';
+                canvasCtx.shadowBlur = 15;
+                canvasCtx.fill();
+                canvasCtx.shadowBlur = 0;
+            }
+
+            spawnObjects();
+            
+            for (let i = gameObjects.length - 1; i >= 0; i--) {
+                let obj = gameObjects[i];
+                obj.update();
+                obj.draw();
+
+                if (fingerX !== null && !obj.isSliced) {
+                    let dist = Math.hypot(fingerX - obj.x, fingerY - obj.y);
+                    if (dist < obj.radius + 12) {
+                        obj.isSliced = true;
+                        
+                        if (obj.type === 'fruit') {
+                            score += 1;
+                            scoreSpan.innerText = score;
+                        } else {
+                            score = Math.max(0, score - 5);
+                            scoreSpan.innerText = score;
+                            alert("💥 Boom! You hit the bomb (-5 points)!");
+                        }
+                    }
+                }
+
+                // إيلا فاتت الكورة أسفل الشاشة (فاتت 480px)، كتحيد من الذاكرة
+                if (obj.y > canvasElement.height + 30) {
+                    gameObjects.splice(i, 1);
                 }
             }
         }
 
-        // إعدادات MediaPipe Hands
         const hands = new Hands({
             locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
         });
 
         hands.setOptions({
-            maxNumHands: 1, // يد واحدة كافية للعب
+            maxNumHands: 1,
             modelComplexity: 1,
             minDetectionConfidence: 0.5,
             minTrackingConfidence: 0.5
         });
-
         hands.onResults(onResults);
 
-        // تشغيل الكاميرا وتمرير الفيديوهات للموديل
         const camera = new Camera(videoElement, {
             onFrame: async () => {
                 await hands.send({image: videoElement});
@@ -117,7 +199,6 @@
             width: 640,
             height: 480
         });
-        
         camera.start();
     </script>
 </body>
