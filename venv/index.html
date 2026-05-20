@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fruit Ninja AI - Web Version</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #1a1a1a;
+            color: white;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+        h1 {
+            margin-bottom: 10px;
+            color: #4CAF50;
+        }
+        .container {
+            position: relative;
+            width: 640px;
+            height: 480px;
+            border: 4px solid #4CAF50;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(76, 175, 80, 0.5);
+        }
+        /* كيديرو الكاميرا ف الخلفية والـ Canvas فوق منها نيشان */
+        #webcam, #output_canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 640px;
+            height: 480px;
+            transform: rotateY(180deg); /* Mirror effect باش يتحرك بحال المراية */
+        }
+        #loading {
+            position: absolute;
+            font-size: 20px;
+            color: #ffeb3b;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+</head>
+<body>
+
+    <h1>Fruit Ninja AI - Hand Tracking 🕹️</h1>
+    <div id="loading">جاري تحميل موديل الذكاء الاصطناعي...</div>
+
+    <div class="container">
+        <video id="webcam" autoplay playsinline></video>
+        <canvas id="output_canvas" width="640" height="480"></canvas>
+    </div>
+
+    <script>
+        const videoElement = document.getElementById('webcam');
+        const canvasElement = document.getElementById('output_canvas');
+        const canvasCtx = canvasElement.getContext('2d');
+        const loadingDiv = document.getElementById('loading');
+
+        // دالة كترسم النتائج فوق الكانفاس
+        function onResults(results) {
+            // إخفاء رسالة التحميل فاش يبدأ الموديل يخدم
+            loadingDiv.style.display = 'none';
+
+            // مسح الكانفاس ف كل فريم
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+
+            // إيلا لقى اليد ف الكاميرا
+            if (results.multiHandLandmarks) {
+                for (const landmarks of results.multiHandLandmarks) {
+                    
+                    // نقطة رقم 8 هي راس صبع السبابة (Index Finger Tip)
+                    const indexFinger = landmarks[8];
+                    
+                    // تحويل الإحداثيات لنسب متطابقة مع حجم الكانفاس
+                    const x = indexFinger.x * canvasElement.width;
+                    const y = indexFinger.y * canvasElement.height;
+
+                    // رسم دائرة خضراء مضيئة ف راس الصبع (بحال الموس ديال اللعبة)
+                    canvasCtx.beginPath();
+                    canvasCtx.arc(x, y, 15, 0, 2 * Math.PI);
+                    canvasCtx.fillStyle = '#00FF00';
+                    canvasCtx.shadowColor = '#00FF00';
+                    canvasCtx.shadowBlur = 15;
+                    canvasCtx.fill();
+                    canvasCtx.shadowBlur = 0; // إعادة التعيين
+                }
+            }
+        }
+
+        // إعدادات MediaPipe Hands
+        const hands = new Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
+
+        hands.setOptions({
+            maxNumHands: 1, // يد واحدة كافية للعب
+            modelComplexity: 1,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+
+        hands.onResults(onResults);
+
+        // تشغيل الكاميرا وتمرير الفيديوهات للموديل
+        const camera = new Camera(videoElement, {
+            onFrame: async () => {
+                await hands.send({image: videoElement});
+            },
+            width: 640,
+            height: 480
+        });
+        
+        camera.start();
+    </script>
+</body>
+</html>
