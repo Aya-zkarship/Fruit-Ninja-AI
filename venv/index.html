@@ -68,7 +68,7 @@
     <div id="score-board">Score: <span id="score">0</span></div>
     
     <div class="container">
-        <div id="loading">جاري تحميل الذكاء الاصطناعي والكاميرا...</div>
+        <div id="loading">Loading AI and Camera...</div>
         <video id="webcam" autoplay playsinline style="display:none;"></video>
         <canvas id="output_canvas" width="640" height="480"></canvas>
     </div>
@@ -86,13 +86,13 @@
         class GameObject {
             constructor() {
                 this.radius = 25;
-                // تختار مكان عشوائي ف العرض (الـ x)
+               
                 this.x = Math.random() * (canvasElement.width - 60) + 30;
-                // تبدأ من الفوق كاع (خارج الشاشة شوية ف الـ y)
+               
                 this.y = -this.radius; 
-                // سرعة خفيفة ف الجناب باش ما ينزلوش نيشان
+                
                 this.speedX = (Math.random() - 0.5) * 2;
-                // سرعة النزول للتحت (مابين 3 و 7 بيكسل ف الفريم)
+            
                 this.speedY = Math.random() * 4 + 3; 
                 
                 this.type = Math.random() > 0.2 ? 'fruit' : 'bomb';
@@ -101,7 +101,7 @@
             }
 
             update() {
-                // الكرات كيهبطو دبا بلا جاذبية مفرطة باش ما يزربوش بزاف
+         
                 this.x += this.speedX;
                 this.y += this.speedY;
             }
@@ -119,7 +119,7 @@
         }
 
         function spawnObjects() {
-            // التحكم ف شحال من كورة كاطيح ف الدقة
+            
             if (Math.random() < 0.04 && gameObjects.length < 6) {
                 gameObjects.push(new GameObject());
             }
@@ -173,7 +173,6 @@
                     }
                 }
 
-                // إيلا فاتت الكورة أسفل الشاشة (فاتت 480px)، كتحيد من الذاكرة
                 if (obj.y > canvasElement.height + 30) {
                     gameObjects.splice(i, 1);
                 }
