@@ -10,7 +10,7 @@ score = 0
 game_over = False
 start_time = time.time()
 
-# 🍎 fruits + 💣 bombs
+# fruits +  bombs
 objects = []
 
 def create_object():
@@ -36,7 +36,7 @@ while True:
 
     finger = tracker.get_index_finger_position(frame)
 
-    # ⏱ difficulty increases over time
+    #  difficulty increases over time
     if len(objects) < 10 and time.time() - start_time > 5:
         objects.append(create_object())
         start_time = time.time()
